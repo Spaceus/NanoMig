@@ -4,6 +4,10 @@ NanoMig is a port of the [Minimig](https://en.wikipedia.org/wiki/Minimig) Commod
 
 ![NanoMig](doc/nanomig.jpg)
 
+![Alien Breed II AGA on Tang Primer 25K](doc/nanomig_tp25k_aga.jpg)
+
+*Alien Breed II (AGA) running on a Tang Primer 25K.*
+
 This is based on the [MiSTeryNano project](https://github.com/harbaum/MiSTeryNano/) and also relies on a [FPGA companion](http://github.com/harbaum/FPGA-Companion) to be connected to the FPGA board for USB support and on-screen-display control.
 
 This is still a work in progress. The current version is based on the [MiSTer Minimig AGA code](https://github.com/MiSTer-devel/Minimig-AGA_MiSTer) and runs all Amiga apps, games and demos.
