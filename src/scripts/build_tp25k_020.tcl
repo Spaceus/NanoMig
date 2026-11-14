@@ -94,6 +94,7 @@ add_file tang/primer25k/gowin_dpb/ide_dpram.v
 #add_file tang/primer25k/gowin_dp/sprite_ram.v
 #add_file tang/primer25k/gowin_dp/bitplane_ram.v
 add_file misc/sdram.sv
+add_file misc/rtg_scanout.v
 add_file tang/primer25k/nanomig.cst
 add_file tang/primer25k/nanomig_020.sdc
 add_file fx68k/microrom.mem

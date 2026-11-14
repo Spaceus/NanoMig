@@ -17,6 +17,7 @@
 `define CHIPRAM_CACHE // cache chip ram instruction fetches too
 `define ENABLE_RTC
 `define DISABLE_ROM_IMAGE
+`define ENABLE_RTG    // experimental RTG window + scanout, see doc/RTG_PRIMER25K.md
 
 module top(
   input			clk, // 50 MHz in
@@ -634,6 +635,14 @@ wire [15:0] sdram_din     = rom_done?ram_dout:flash_doutD;
 wire [1:0]  sdram_be      = rom_done?ram_be:2'b00;
 wire		sdram_we      = rom_done?sdram_rw:flash_ram_write;
 
+`ifdef ENABLE_RTG
+wire        rtg_p3_cs;
+wire [23:0] rtg_p3_addr;
+wire [15:0] rtg_p3_dout;
+wire [47:0] rtg_p3_dout48;
+wire        rtg_p3_ack;
+`endif
+
 sdram #(.SYNC_DELAY(2), .CHIP48_BURST(1)) sdram (
 	.sd_data    ( IO_sdram_dq   ), // 32 bit bidirectional data bus
 	.sd_addr    ( O_sdram_addr  ), // 11 bit multiplexed address bus
@@ -667,6 +676,14 @@ sdram #(.SYNC_DELAY(2), .CHIP48_BURST(1)) sdram (
 	.p2_cs         ( fastram_sel     ), // cpu/chipset requests read/wrie
 	.p2_we         ( fastram_wr      ),  // cpu/chipset requests write
 	.p2_ack        ( fastram_ready   )
+`ifdef ENABLE_RTG
+	,
+	.p3_cs         ( rtg_p3_cs       ),
+	.p3_addr       ( rtg_p3_addr     ),
+	.p3_dout       ( rtg_p3_dout     ),
+	.p3_dout48     ( rtg_p3_dout48   ),
+	.p3_ack        ( rtg_p3_ack      )
+`endif
 );
 
 // run the flash a 85MHz. This is only used at power-up to copy kickstart
@@ -798,6 +815,35 @@ end
 wire [2:0] tmds;
 wire tmds_clock;
 
+`ifdef ENABLE_RTG
+// RTG: the scanout reads its picture through port 3 of the sdram and replaces
+// the Amiga video. While it is active the hdmi timing is forced to 720x480
+// (NTSC) and free running.
+wire [10:0] hdmi_cx;
+wire [9:0]  hdmi_cy;
+wire [23:0] rtg_rgb;
+wire        rtg_active;
+
+rtg_scanout rtg_scanout (
+    .clk        ( clk_85m        ),
+    .reset      ( !pll_lock      ),
+    .p3_cs      ( rtg_p3_cs      ),
+    .p3_addr    ( rtg_p3_addr    ),
+    .p3_dout    ( rtg_p3_dout    ),
+    .p3_dout48  ( rtg_p3_dout48  ),
+    .p3_ack     ( rtg_p3_ack     ),
+    .clk_pixel  ( clk_pixel      ),
+    .cx         ( hdmi_cx        ),
+    .cy         ( hdmi_cy        ),
+    .rgb        ( rtg_rgb        ),
+    .rtg_active ( rtg_active     )
+);
+
+reg rtg_active_d;
+always @(posedge clk_pixel) rtg_active_d <= rtg_active;
+wire hdmi_reset = (rtg_active ^ rtg_active_d) | (rtg_active ? 1'b0 : vreset);
+`endif
+
 hdmi #(
     .AUDIO_RATE(48000), .AUDIO_BIT_WIDTH(16),
     .VENDOR_NAME( { "MiSTle", 16'd0} ),
@@ -810,6 +856,17 @@ hdmi #(
   .tmds(tmds),
   .tmds_clock(tmds_clock),
 
+`ifdef ENABLE_RTG
+  .pal_mode(rtg_active ? 1'b0 : vpal),
+  .short_frame ( rtg_active ? 1'b0 : short_frame ),
+  .screen ( rtg_active ? 2'd0 : osd_video_screen ),
+  .interlace(rtg_active ? 1'b0 : interlace),
+  .reset(hdmi_reset),
+
+  .cx_o(hdmi_cx),
+  .cy_o(hdmi_cy),
+  .rgb( rtg_active ? rtg_rgb : { video_red, 2'b00, video_green, 2'b00, video_blue, 2'b00 } )
+`else
   .pal_mode(vpal),
   .short_frame ( short_frame ),
   .screen ( osd_video_screen ),
@@ -817,6 +874,7 @@ hdmi #(
   .reset(vreset),    // signal to synchronize HDMI
 
   .rgb( { video_red, 2'b00, video_green, 2'b00, video_blue, 2'b00 } )
+`endif
 );
 
 // differential output

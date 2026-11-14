@@ -31,7 +31,9 @@
   `endif
 `endif
 
+`ifndef ENABLE_RTG
 `define TG68K_A24      // limit address space of TG68K to 24 bit
+`endif  // the RTG window at $02000000 needs the full 32 bit address
 
 // if only one CPU is enabled, then this is being used for all
 // configurations. This e.g. allows the tg68k to be used in plain 68000 mode as well
@@ -121,6 +123,11 @@ wire sel_zram   = sel_z3ram0 | sel_z3ram1 | sel_z2ram;
 `ifdef MISTER_DEPRECATED
 wire sel_dd  = (cpu_addr[31:16] == 16'h00DD) && (cpu_addr[15:13] == 'b010);
 wire sel_rtg = (cpu_addr[31:24] == 8'h02);
+`elsif ENABLE_RTG
+// 4 MiB RTG window at $02000000, kept in the otherwise unused SDRAM
+// range 12..16 MiB, see misc/rtg_scanout.v
+wire sel_dd  = 1'b0;
+wire sel_rtg = (cpu_addr[31:22] == 10'h008);
 `else
 wire sel_dd  = 1'b0;
 wire sel_rtg = 1'b0;
@@ -209,7 +216,12 @@ assign ramdat = sel_rtg ? {ramdout[7:0], ramdout[15:8]}  : ramdout;
 assign ramaddr[28:24] = 5'b0;
 
 `ifdef ENABLE_RAM32
+`ifdef ENABLE_RTG
+assign ramaddr[23:21] = sel_rtg ? {2'b11, cpu_addr[21]} :	// $02000000-$023FFFFF -> $C00000-$FFFFFF
+			(cpu_addr[23:21] == 3'b011) ? 3'b101 :	// $600000-$7FFFFF -> $A00000-$BFFFFF
+`else
 assign ramaddr[23:21] = (cpu_addr[23:21] == 3'b011) ? 3'b101 :	// $600000-$7FFFFF -> $A00000-$BFFFFF
+`endif
 			(cpu_addr[23:21] == 3'b100) ? 3'b100 :	// $800000-$9FFFFF -> $800000-$9FFFFF
 			{1'b0, cpu_addr[22], cpu_addr[21] | cpu_addr[23]};	// $000000-$FFFFFF -> $000000-$7FFFFF
 `else

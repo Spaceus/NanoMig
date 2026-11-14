@@ -92,6 +92,17 @@ module sdram #(
   input  wire        p2_cs,    // cpu requests read/wrie
   input  wire        p2_we,    // cpu requests write
   output wire        p2_ack    // cpu ack
+`ifdef ENABLE_RTG
+  ,
+  // port 3: read only 4 word burst port for the RTG scanout. The request
+  // must be held until p3_ack toggles. p3_dout is word 0 of the burst,
+  // p3_dout48 holds words 1..3 ({w1,w2,w3}).
+  input  wire        p3_cs,
+  input  wire [23:0] p3_addr,   // 24 bit word address (32 MB)
+  output reg  [15:0] p3_dout,
+  output reg  [47:0] p3_dout48,
+  output wire        p3_ack
+`endif
 );
 
 localparam WIDTH32 = (DATA_WIDTH == 32);
@@ -112,6 +123,9 @@ localparam ADDR_BASE = WIDTH32 ? 1 : 0;
 
 wire [31:0]    addr32 = { {(10+ADDR_BASE){1'b0}},    addr[21:ADDR_BASE]};
 wire [31:0] p2_addr32 = { {( 9+ADDR_BASE){1'b0}}, p2_addr[22:ADDR_BASE]};
+`ifdef ENABLE_RTG
+wire [31:0] p3_addr32 = { { (8+ADDR_BASE){1'b0}}, p3_addr[23:ADDR_BASE]};
+`endif
 
 reg addr_0;
 
@@ -265,6 +279,16 @@ reg                 sd_dq;
 reg [RAS_WIDTH-1:0] sd_addr_cas;
 
 reg p2_ack_i;
+`ifdef ENABLE_RTG
+reg p3_ack_i = 1'b0;
+reg p3_cs_d  = 1'b0;
+reg p3_taken = 1'b0;
+// a port 3 request is only accepted if it has been stable for two clocks (the
+// address is latched one clock ahead of the slot decision) and it has not been
+// served yet. Dropping p3_cs for one clock re-arms the port.
+wire p3_go = p3_cs && p3_cs_d && !p3_taken;
+always @(posedge clk) p3_cs_d <= p3_cs;
+`endif
 
 generate
   if (WIDTH32) begin
@@ -281,12 +305,13 @@ generate
   end
 endgenerate
 
-localparam PORT_1       = 2'd0;
-localparam PORT_2       = 2'd1;
-localparam PORT_REFRESH = 2'd2;
-localparam PORT_IDLE    = 2'd3;
+localparam PORT_1       = 3'd0;
+localparam PORT_2       = 3'd1;
+localparam PORT_REFRESH = 3'd2;
+localparam PORT_IDLE    = 3'd3;
+localparam PORT_3       = 3'd4;  // only used with ENABLE_RTG
 
-reg [1:0] sdram_port;
+reg [2:0] sdram_port;
 
 always @(posedge clk, negedge reset_n) begin
   if (!reset_n)
@@ -298,6 +323,9 @@ end
 always @(posedge clk) begin
   sd_cmd <= CMD_NOP;
   sd_dq  <= 0;
+`ifdef ENABLE_RTG
+  if (!p3_cs) p3_taken <= 1'b0;
+`endif
 
   case (state)
     STATE_INIT: begin
@@ -332,6 +360,22 @@ always @(posedge clk) begin
 
         addr_0  <= addr[0];
 
+`ifdef ENABLE_RTG
+      end else if (p3_go) begin
+        sd_addr <= p3_addr32[RAS_WIDTH+CAS_WIDTH-1:CAS_WIDTH];
+
+        sd_addr_cas[RAS_WIDTH-1:0] <= {RAS_WIDTH{1'b0}};
+        sd_addr_cas[CAS_WIDTH-1:0] <= p3_addr32[CAS_WIDTH-1:0];
+        sd_addr_cas[10] <= 1'b1;  // precharge
+
+        sd_ba <= p3_addr32[RAS_WIDTH+CAS_WIDTH+1:RAS_WIDTH+CAS_WIDTH];
+
+        ram_ds  <= 2'b00;
+        ram_we  <= 1'b0;
+        ram_din <= 16'h0000;
+
+        addr_0 <= p3_addr[0];
+`endif
       end else if (p2_cs) begin
         sd_addr <= p2_addr32[RAS_WIDTH+CAS_WIDTH-1:CAS_WIDTH];
 
@@ -362,6 +406,12 @@ always @(posedge clk) begin
 
           refreshcnt <= SYNC_CYCLES_PER_REFRESH[REFRESHCNT_MAX_WIDTH-1:0];
 
+`ifdef ENABLE_RTG
+        end else if (p3_go) begin
+          sdram_port <= PORT_3;
+          sd_cmd     <= CMD_ACTIVE;
+          p3_taken   <= 1'b1;
+`endif
         end else if (p2_cs) begin
           sdram_port <= PORT_2;
           sd_cmd     <= CMD_ACTIVE;
@@ -387,6 +437,11 @@ always @(posedge clk) begin
         PORT_REFRESH: begin
           sd_cmd <= CMD_AUTO_REFRESH;
         end
+`ifdef ENABLE_RTG
+        PORT_3: begin
+          sd_cmd <= CMD_READ;
+        end
+`endif
         default: ;
       endcase
     end
@@ -398,6 +453,11 @@ always @(posedge clk) begin
         PORT_2 : begin
           p2_dout <= ram_dout;
         end
+`ifdef ENABLE_RTG
+        PORT_3 : begin
+          p3_dout <= ram_dout;
+        end
+`endif
         default: ;
       endcase
     end
@@ -499,6 +559,9 @@ generate
           case (sdram_port)
             PORT_1: dout48[47:32] <= ram_dout;
             PORT_2: p2_dout48[47:32] <= ram_dout;
+`ifdef ENABLE_RTG
+            PORT_3: p3_dout48[47:32] <= ram_dout;
+`endif
             default: ;
           endcase
         end
@@ -506,6 +569,9 @@ generate
           case (sdram_port)
             PORT_1: dout48[31:16] <= ram_dout;
             PORT_2: p2_dout48[31:16] <= ram_dout;
+`ifdef ENABLE_RTG
+            PORT_3: p3_dout48[31:16] <= ram_dout;
+`endif
             default: ;
           endcase
         end
@@ -516,6 +582,12 @@ generate
               if (!ram_we && CHIP48_BURST) p2_ack_i <= ~p2_ack_i;
               p2_dout48[15: 0] <= ram_dout;
             end
+`ifdef ENABLE_RTG
+            PORT_3: begin
+              p3_ack_i <= ~p3_ack_i;
+              p3_dout48[15: 0] <= ram_dout;
+            end
+`endif
             default: ;
           endcase
         end
@@ -546,6 +618,13 @@ generate
     assign p2_ack = p2_ack_i;
   end
 endgenerate
+
+`ifdef ENABLE_RTG
+// p3 ack is registered once more to line up with p3_dout48
+reg p3_ack_d;
+always @(posedge clk) p3_ack_d <= p3_ack_i;
+assign p3_ack = p3_ack_d;
+`endif
 
 endmodule
 `default_nettype wire

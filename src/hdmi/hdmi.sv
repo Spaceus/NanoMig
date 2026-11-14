@@ -51,6 +51,10 @@ module hdmi
     // synchronous reset back to 0,0
     input logic 		      reset,
     input logic [23:0] 		      rgb, 
+`ifdef ENABLE_RTG
+    output logic [10:0]               cx_o,  // pixel position the rgb input belongs to
+    output logic [9:0]                cy_o,
+`endif
     input logic [AUDIO_BIT_WIDTH-1:0] audio_sample_word [1:0],
 
     // These outputs go to your HDMI port
@@ -109,6 +113,10 @@ assign invert = 2'b11;
 
 reg [10:0] cx;
 reg [9:0] cy;
+`ifdef ENABLE_RTG
+assign cx_o = cx;
+assign cy_o = cy;
+`endif
 
 always_comb begin
     hsync <= invert[0] ^ (cx >= screen_width + hsync_pulse_start && cx < screen_width + hsync_pulse_start + hsync_pulse_size);
