@@ -12,17 +12,15 @@
 module top(
   input			clk, // 27 MHz in
 
-  input			reset, // S2
-  input			user, // S1
+  input			reset_n, // Key_2, active low
+  input			user_n,  // Key_1, active low
 
-  output [1:0]	leds,
+  output [1:0]	leds_n,  // Orange_LED0/1, active low
 
   // spi flash interface
   output		mspi_cs,
   output		mspi_clk,
   inout			mspi_di,
-  inout			mspi_hold,
-  inout			mspi_wp,
   inout			mspi_do,
 
   // MiSTer SDRAM module
@@ -50,16 +48,6 @@ module top(
   inout			sd_cmd, // MOSI
   inout [3:0]	sd_dat, // 0: MISO
 
-  output		jtagseln,
-  input			bl616_jtagsel,
-
-  // SPI connection to on-board BL616. By default an external
-  // connection is used with a FPGA Companion
-  input			spi_sclk,
-  input			spi_csn,
-  output		spi_dir,
-  input			spi_dat,
-  output		spi_irqn,
 
   // hdmi/tdms
   output		tmds_clk_n,
@@ -67,6 +55,26 @@ module top(
   output [2:0]	tmds_d_n,
   output [2:0]	tmds_d_p
 );
+
+// --- Tang Primer 20K Dock specifics ---
+// keys and LEDs are active low on this board
+wire reset = !reset_n;
+wire user  = !user_n;
+wire [1:0] leds;
+assign leds_n = ~leds;
+
+// no BL616 on this board: the companion MCU is only reachable via the
+// pmod_companion_* pins, so the on-board SPI connection is tied off
+wire bl616_jtagsel = 1'b0;
+wire jtagseln;
+wire spi_dir, spi_irqn;
+wire spi_sclk = 1'b0;
+wire spi_csn  = 1'b1;
+wire spi_dat  = 1'b0;
+
+// the SOM flash only has IO0/IO1 connected to the FPGA, WP/HOLD are
+// pulled up on the core board
+wire mspi_hold, mspi_wp;
 
 wire [1:0]	drv_leds;
 // wire floppy and hdd drive leds into a single one

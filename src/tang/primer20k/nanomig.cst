@@ -1,80 +1,62 @@
-// Tang Primer 20K Dock - PIN CONSTRAINTS SKELETON (NOT FINAL)
-// All locations below must be filled in from the Sipeed Primer 20K Dock schematic.
-// Ports are the same as primer25k/top.sv. The 27 MHz clock pin is believed to be H11 - verify!
+// Tang Primer 20K Dock (3713/3714) + SOM 3961 - NanoMig pin constraints
+// Sources: Sipeed "Tang_Primer_20K_Dock_3714_Schematics.pdf" and
+//          "Tang_Primer_20K_SOM-3961_Schematic.pdf".
+// Pins marked TODO are not final (see README.md).
 
-IO_LOC "clk" H11;  // 27MHz, VERIFY
+// 27 MHz oscillator on the SOM
+IO_LOC "clk" H11;
 IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
-// TODO IO_LOC "spi_csn" ???;  (25k pin: B1)
-// TODO IO_LOC "spi_sclk" ???;  (25k pin: C1)
-// TODO IO_LOC "spi_dat" ???;  (25k pin: A3)
-// TODO IO_LOC "spi_dir" ???;  (25k pin: A2)
-// TODO IO_LOC "spi_irqn" ???;  (25k pin: C3)
-// TODO IO_LOC "bl616_jtagsel" ???;  (25k pin: B3)
-// TODO IO_LOC "reset" ???;  (25k pin: H11)
-// TODO IO_LOC "user" ???;  (25k pin: H10)
-// TODO IO_LOC "mspi_cs" ???;  (25k pin: E6)
-// TODO IO_LOC "mspi_wp" ???;  (25k pin: D5)
-// TODO IO_LOC "mspi_hold" ???;  (25k pin: E4)
-// TODO IO_LOC "mspi_do" ???;  (25k pin: E5)
-// TODO IO_LOC "mspi_di" ???;  (25k pin: D6)
-// TODO IO_LOC "mspi_clk" ???;  (25k pin: E7)
-// TODO IO_LOC "IO_sdram_dq[0]" ???;  (25k pin: K2)
-// TODO IO_LOC "IO_sdram_dq[1]" ???;  (25k pin: K1)
-// TODO IO_LOC "IO_sdram_dq[2]" ???;  (25k pin: L1)
-// TODO IO_LOC "IO_sdram_dq[3]" ???;  (25k pin: L2)
-// TODO IO_LOC "IO_sdram_dq[4]" ???;  (25k pin: K4)
-// TODO IO_LOC "IO_sdram_dq[5]" ???;  (25k pin: J4)
-// TODO IO_LOC "IO_sdram_dq[6]" ???;  (25k pin: G1)
-// TODO IO_LOC "IO_sdram_dq[7]" ???;  (25k pin: G2)
-// TODO IO_LOC "IO_sdram_dq[8]" ???;  (25k pin: E1)
-// TODO IO_LOC "IO_sdram_dq[9]" ???;  (25k pin: A1)
-// TODO IO_LOC "IO_sdram_dq[10]" ???;  (25k pin: F2)
-// TODO IO_LOC "IO_sdram_dq[11]" ???;  (25k pin: F1)
-// TODO IO_LOC "IO_sdram_dq[12]" ???;  (25k pin: B2)
-// TODO IO_LOC "IO_sdram_dq[13]" ???;  (25k pin: C2)
-// TODO IO_LOC "IO_sdram_dq[14]" ???;  (25k pin: L4)
-// TODO IO_LOC "IO_sdram_dq[15]" ???;  (25k pin: L3)
-// TODO IO_LOC "O_sdram_addr[0]" ???;  (25k pin: F6)
-// TODO IO_LOC "O_sdram_addr[1]" ???;  (25k pin: F7)
-// TODO IO_LOC "O_sdram_addr[2]" ???;  (25k pin: J10)
-// TODO IO_LOC "O_sdram_addr[3]" ???;  (25k pin: J11)
-// TODO IO_LOC "O_sdram_addr[4]" ???;  (25k pin: K7)
-// TODO IO_LOC "O_sdram_addr[5]" ???;  (25k pin: H2)
-// TODO IO_LOC "O_sdram_addr[6]" ???;  (25k pin: H1)
-// TODO IO_LOC "O_sdram_addr[7]" ???;  (25k pin: H4)
-// TODO IO_LOC "O_sdram_addr[8]" ???;  (25k pin: G4)
-// TODO IO_LOC "O_sdram_addr[9]" ???;  (25k pin: J2)
-// TODO IO_LOC "O_sdram_addr[10]" ???;  (25k pin: J8)
-// TODO IO_LOC "O_sdram_addr[11]" ???;  (25k pin: J1)
-// TODO IO_LOC "O_sdram_addr[12]" ???;  (25k pin: D1)
-// TODO IO_LOC "O_sdram_ba[0]" ???;  (25k pin: L9)
-// TODO IO_LOC "O_sdram_ba[1]" ???;  (25k pin: K8)
-// TODO IO_LOC "O_sdram_dqm[0]" ???;  (25k pin: L8)
-// TODO IO_LOC "O_sdram_dqm[1]" ???;  (25k pin: L7)
-// TODO IO_LOC "O_sdram_clk" ???;  (25k pin: E3)
-// TODO IO_LOC "O_sdram_wen_n" ???;  (25k pin: J7)
-// TODO IO_LOC "O_sdram_ras_n" ???;  (25k pin: L10)
-// TODO IO_LOC "O_sdram_cas_n" ???;  (25k pin: K10)
-// TODO IO_LOC "O_sdram_cs_n" ???;  (25k pin: K9)
-// TODO IO_LOC "sd_clk" ???;  (25k pin: C11)
-// TODO IO_LOC "sd_cmd" ???;  (25k pin: D11)
-// TODO IO_LOC "sd_dat[0]" ???;  (25k pin: B11)
-// TODO IO_LOC "sd_dat[1]" ???;  (25k pin: G10)
-// TODO IO_LOC "sd_dat[2]" ???;  (25k pin: D10)
-// TODO IO_LOC "sd_dat[3]" ???;  (25k pin: G11)
-// TODO IO_LOC "pmod_companion_din" ???;  (25k pin: A11)
-// TODO IO_LOC "pmod_companion_dout" ???;  (25k pin: A10)
-// TODO IO_LOC "pmod_companion_clk" ???;  (25k pin: E11)
-// TODO IO_LOC "pmod_companion_ss" ???;  (25k pin: E10)
-// TODO IO_LOC "pmod_companion_intn" ???;  (25k pin: L11)
-// TODO IO_LOC "tmds_clk_p" ???;  (25k: H5,J5;
-)
-// TODO IO_LOC "tmds_d_p[0]" ???;  (25k: H8,H7;
-)
-// TODO IO_LOC "tmds_d_p[1]" ???;  (25k: G7,G8;
-)
-// TODO IO_LOC "tmds_d_p[2]" ???;  (25k: F5,G5;
-)
-// TODO IO_LOC "leds[1]" ???;  (25k pin: E8)
-// TODO IO_LOC "leds[0]" ???;  (25k pin: D7)
+// Dock keys, active low. Key_1/Key_2 are in the 1.5V bank 4
+IO_LOC "user_n" T3;      // Key_1
+IO_PORT "user_n" IO_TYPE=LVCMOS15 PULL_MODE=NONE BANK_VCCIO=1.5;
+IO_LOC "reset_n" T2;     // Key_2
+IO_PORT "reset_n" IO_TYPE=LVCMOS15 PULL_MODE=NONE BANK_VCCIO=1.5;
+
+// Dock LEDs, active low (needs use_done_as_gpio/use_ready_as_gpio)
+IO_LOC "leds_n[0]" C13;  // Orange_LED0 (DONE pin)
+IO_PORT "leds_n[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC "leds_n[1]" A13;  // Orange_LED1 (READY pin)
+IO_PORT "leds_n[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// SPI NOR flash on the SOM (only IO0/IO1 reach the FPGA)
+IO_LOC "mspi_cs" M9;
+IO_PORT "mspi_cs" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "mspi_clk" L10;
+IO_PORT "mspi_clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "mspi_di" R10;    // flash SI
+IO_PORT "mspi_di" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC "mspi_do" P10;    // flash SO
+IO_PORT "mspi_do" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// microSD slot on the SOM (SDIO wiring, SPI mode like the other boards)
+IO_LOC "sd_clk" N10;
+IO_PORT "sd_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "sd_cmd" R14;     // MOSI
+IO_PORT "sd_cmd" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "sd_dat[0]" M8;   // MISO
+IO_PORT "sd_dat[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "sd_dat[1]" M7;
+IO_PORT "sd_dat[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "sd_dat[2]" M10;
+IO_PORT "sd_dat[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "sd_dat[3]" N11;  // CS
+IO_PORT "sd_dat[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// HDMI connector (banks 0/1; 3714 "DVI optimize" does not change the pins)
+IO_LOC "tmds_clk_p" G16,H15;   // HDMI_TXC
+IO_PORT "tmds_clk_p" PULL_MODE=NONE DRIVE=8 IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[0]" H14,H16;  // HDMI_TX0
+IO_PORT "tmds_d_p[0]" PULL_MODE=NONE DRIVE=8 IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[1]" J15,K16;  // HDMI_TX1
+IO_PORT "tmds_d_p[1]" PULL_MODE=NONE DRIVE=8 IO_TYPE=LVCMOS33D;
+IO_LOC "tmds_d_p[2]" K14,K15;  // HDMI_TX2
+IO_PORT "tmds_d_p[2]" PULL_MODE=NONE DRIVE=8 IO_TYPE=LVCMOS33D;
+
+// ---------------------------------------------------------------------
+// TODO: FPGA Companion (MCU) on a PMOD. J14 (MIC, 2x6) and J12 (DVP, 2x6)
+// are free 3.3V candidates, e.g. J14: MIC_DAT0 P8? ... see README.md
+// pmod_companion_din / dout / clk / ss / intn
+// TODO: external SDRAM module - the dock has no 2x20 header, see README.md
+// O_sdram_* / IO_sdram_dq: not assigned. Without these pins the design can
+// not be placed. The SOM DDR3 controller replaces them in the long run.
