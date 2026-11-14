@@ -15,7 +15,7 @@
 `define CPU_SLOW14    // run TG68K at 14MHz effective (A1200 speed) for timing closure
 `define ENABLE_CACHE  // required for AGA as the 020 has caches
 `define CHIPRAM_CACHE // cache chip ram instruction fetches too
-`define ENABLE_RTC
+// `define ENABLE_RTC  // off to save logic (no battery backed clock)
 `define DISABLE_ROM_IMAGE
 `define AGA_ONLY      // fixed AGA chipset and a single floppy drive, no such menu entries
 `define ENABLE_RTG    // experimental RTG window + scanout, see doc/RTG_PRIMER25K.md
