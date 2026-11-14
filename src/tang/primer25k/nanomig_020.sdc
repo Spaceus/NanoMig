@@ -15,7 +15,8 @@ set_multicycle_path -from [get_clocks {clk_28}] -to [get_clocks {clk_85}] 2
 set_multicycle_path -from [get_clocks {clk_28}] -to [get_clocks {clk_85}] -hold 1
 set_multicycle_path -from [get_clocks {clk_85}] -to [get_clocks {clk_28}] -start 2
 set_multicycle_path -from [get_clocks {clk_85}] -to [get_clocks {clk_28}] -hold -start 1
-set_false_path -from [get_cells {sysctrl/system_chipset*}]
+// AGA_ONLY: system_chipset is constant and swept, so there are no cells to constrain
+//set_false_path -from [get_cells {sysctrl/system_chipset*}]
 set_false_path -from [get_cells {sysctrl/system_video*}]
 set_false_path -from [get_cells {sysctrl/system_chipmem*}]
 set_false_path -from [get_cells {sysctrl/system_slowmem*}]
