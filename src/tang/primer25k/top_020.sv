@@ -17,6 +17,7 @@
 `define CHIPRAM_CACHE // cache chip ram instruction fetches too
 `define ENABLE_RTC
 `define DISABLE_ROM_IMAGE
+`define AGA_ONLY      // fixed AGA chipset and a single floppy drive, no such menu entries
 `define ENABLE_RTG    // experimental RTG window + scanout, see doc/RTG_PRIMER25K.md
 
 module top(
@@ -460,10 +461,18 @@ wire [47:0] fastram_dout48; // wide read data of the cpu cache port
 assign ram_din = sdram_dout;
 
 // pack config values into minimig config
+`ifdef AGA_ONLY
+wire [5:0] chipset_config = { 1'b0, 3'd6, osd_video_mode, 1'b0 };   // 6 = AGA
+`else
 wire [5:0] chipset_config = { 1'b0,osd_chipset,osd_video_mode,1'b0 };
+`endif
 wire [7:0] memory_config = { 4'b0_000, osd_slowmem, osd_chipmem };
 wire [2:0] fastram_config = { 1'b0, osd_fastmem };
+`ifdef AGA_ONLY
+wire [3:0] floppy_config = { 2'd0, osd_floppy_wrprot, osd_floppy_turbo };   // DF0: only
+`else
 wire [3:0] floppy_config = { osd_floppy_drives, osd_floppy_wrprot, osd_floppy_turbo };
+`endif
 wire [3:0] video_config = { osd_video_filter, osd_video_scanlines };
 // fixed to 68020: this build needs an A1200 Kickstart, which does not run on a 68000
 wire [1:0] cpu_config = 2'b11;

@@ -1,4 +1,4 @@
-set board "mistle_gw5a_25"
+set board "tang_primer25k_aga"
 set config "amiga"
 source scripts/update_xml.tcl
 
