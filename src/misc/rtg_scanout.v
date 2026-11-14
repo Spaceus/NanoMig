@@ -50,7 +50,7 @@ module rtg_scanout #(
   input  wire [9:0]  cy,
 
   output wire [23:0] rgb,
-  output reg         rtg_active = 1'b0  // RTG picture is shown (latched at frame start)
+  output wire        rtg_active         // RTG picture is shown (latched at frame start)
 );
 
 // ------------------------------------------------------------------------
@@ -229,12 +229,17 @@ end
 // pixel side: line buffer -> palette -> rgb
 // ------------------------------------------------------------------------
 
-// rtg_en crosses into the pixel domain, it is only taken over at frame start
+// rtg_en crosses into the pixel domain, it is only taken over at frame start.
+// (the initial value is set in an initial block, a declaration with
+// initialisation on a port is ignored by gowin synthesis, EX2478)
 reg [1:0] en_s = 2'b00;
+reg       active_r;
+initial active_r = 1'b0;
 always @(posedge clk_pixel) begin
   en_s <= { en_s[0], rtg_en };
-  if (cx == 11'd0 && cy == 10'd0) rtg_active <= en_s[1];
+  if (cx == 11'd0 && cy == 10'd0) active_r <= en_s[1];
 end
+assign rtg_active = active_r;
 
 // look ahead by 3 clocks (line buffer, byte select, palette): the hdmi core
 // expects the rgb value of the pixel at (cx,cy) in the same clock cycle
