@@ -88,11 +88,12 @@
 	<listentry label="None" value="0"/>
 	<listentry label="2MB" value="1"/>
 	<listentry label="4MB" value="2"/>
-	<!-- the gw3a_20 and gw5a_25 boards have 32 MB SDRAM and support 8MB -->
-	<!--IS mistle_gw3a_20 mistle_gw5a_25 -->
+	<!-- the gw3a_20 and gw5a_25 boards have 32 MB SDRAM and support 8MB, as does
+	     the primer25k aga build (ENABLE_RAM32) -->
+	<!--IS mistle_gw3a_20 mistle_gw5a_25 tang_primer25k_aga -->
 	<listentry label="8MB" value="3"/>
 	<!--END-->
-	<!--NOT mistle_gw3a_20 mistle_gw5a_25 -->
+	<!--NOT mistle_gw3a_20 mistle_gw5a_25 tang_primer25k_aga -->
 	<listentry label="5.5MB" value="3"/>
 	<!--END-->
       </list>	
