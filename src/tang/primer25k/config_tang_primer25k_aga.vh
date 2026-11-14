@@ -4,7 +4,6 @@
 `define DISABLE_ROM_IMAGE
 `define ENABLE_TG68K
 `define ENABLE_AGA
-`define CPU_SLOW14
 `define ENABLE_CACHE
 `define NO_WS2812
 `define ENABLE_RAM32

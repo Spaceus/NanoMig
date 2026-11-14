@@ -1,6 +1,5 @@
 // do not edit, auto generated from:
 // tang/primer25k/nanomig_common.sdc
-// tang/primer25k/nanomig_tg68k.sdc
 
 create_clock -name clk_hdmi -period 7 -waveform {0 3} [get_nets {clk_pixel_x5}] -add
 create_clock -name clk_flash -period 11.764 -waveform {0 5.882} [get_ports {mspi_clk}] -add
@@ -27,8 +26,3 @@ set_multicycle_path -from [get_regs {*PAULA1/pf1/dsklen*}] -to [get_regs {*AGNUS
 
 // reset_cnt only counts while the cpu is held in reset and is static afterwards
 set_false_path -from [get_regs {reset_cnt*}]
-set_multicycle_path -from [get_regs {*cpu_inst_p/*}] -to [get_regs {*cpu_inst_p/*}] -setup -end 2
-set_multicycle_path -from [get_regs {*cpu_inst_p/*}] -to [get_regs {*cpu_inst_p/*}] -hold -end 1
-// the TG68K only advances every second clk_28 cycle (CPU_SLOW14), so its reset has two cycles too
-set_multicycle_path -from [get_regs {cpu_reset*}] -to [get_regs {*cpu_inst_p/*}] -setup -end 2
-set_multicycle_path -from [get_regs {cpu_reset*}] -to [get_regs {*cpu_inst_p/*}] -hold -end 1

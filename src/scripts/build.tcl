@@ -338,7 +338,9 @@ if {$dev eq "nano20k"} {
 	# fx68k if tg68k is being included
 	set defines [lsearch -inline -all -not -exact $defines "ENABLE_FX68K"]
 	
-	lappend defines "ENABLE_TG68K" "ENABLE_AGA" "CPU_SLOW14" "ENABLE_CACHE"
+	# no CPU_SLOW14: the TG68K advances on every clk_28 cycle (28MHz), which
+	# works on the GW5A, so the 2-cycle multicycle constraints are not needed
+	lappend defines "ENABLE_TG68K" "ENABLE_AGA" "ENABLE_CACHE"
 	lappend defines "NO_WS2812" "ENABLE_RAM32" "CHIPRAM_CACHE"
 
 	# block ram based bitplane and sprite buffers. All eight sprite buffers
@@ -348,8 +350,6 @@ if {$dev eq "nano20k"} {
 	# cpu fixed to the 68020
 	lappend defines "CPU_FIXED_68020"
 	
-	# once tg68k is enabled add its timing constraints.
-	lappend sdc tang/primer25k/nanomig_tg68k.sdc
     }
 	
     # debug option
