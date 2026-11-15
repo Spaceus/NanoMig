@@ -183,7 +183,21 @@ architecture logic of TG68KdotC_Kernel is
    
 	signal regin				: std_logic_vector(31 downto 0);
 	type   regfile_t is array(0 to 15) of std_logic_vector(31 downto 0);
-	signal regfile				: regfile_t := (OTHERS => (OTHERS => '0')); -- mikej stops sim X issues;
+	-- The register file is kept in two block RAMs (one per read port) with a
+	-- registered read. The read address is the next index (rf_dest_addr /
+	-- rf_source_addr), taken over on clkena_lw like RDindex_A/B, so the RAM
+	-- output equals regfile(RDindex_A/B) of the asynchronous version. A write
+	-- to the register that is read next is bypassed.
+	signal regfile_a			: regfile_t;
+	signal regfile_b			: regfile_t;
+	attribute syn_ramstyle : string;
+	attribute syn_ramstyle of regfile_a : signal is "block_ram";
+	attribute syn_ramstyle of regfile_b : signal is "block_ram";
+	signal ram_QA				: std_logic_vector(31 downto 0);
+	signal ram_QB				: std_logic_vector(31 downto 0);
+	signal byp_QA				: std_logic;
+	signal byp_QB				: std_logic;
+	signal byp_data			: std_logic_vector(31 downto 0);
 	signal RDindex_A			: integer range 0 to 15;
 	signal RDindex_B			: integer range 0 to 15;
 	signal WR_AReg				: std_logic;
@@ -550,20 +564,57 @@ PROCESS (long_start, reg_QB, data_write_tmp, exec, data_read, data_write_mux, me
 -----------------------------------------------------------------------------
 -- Registerfile
 -----------------------------------------------------------------------------
-PROCESS (clk, regfile, RDindex_A, RDindex_B, exec)
+-- block RAM copy A (read port A) and copy B (read port B), both written with
+-- the same data; read-before-write, the bypass below covers the collision
+PROCESS (clk)
 	BEGIN
-		reg_QA <= regfile(RDindex_A);
-		reg_QB <= regfile(RDindex_B);
+		IF rising_edge(clk) THEN
+			IF clkena_lw='1' AND Wwrena='1' THEN
+				regfile_a(RDindex_A) <= regin;
+			END IF;
+			IF clkena_lw='1' THEN
+				ram_QA <= regfile_a(conv_integer(rf_dest_addr(3 downto 0)));
+			END IF;
+		END IF;
+	END PROCESS;
+
+PROCESS (clk)
+	BEGIN
+		IF rising_edge(clk) THEN
+			IF clkena_lw='1' AND Wwrena='1' THEN
+				regfile_b(RDindex_A) <= regin;
+			END IF;
+			IF clkena_lw='1' THEN
+				ram_QB <= regfile_b(conv_integer(rf_source_addr(3 downto 0)));
+			END IF;
+		END IF;
+	END PROCESS;
+
+	reg_QA <= byp_data WHEN byp_QA='1' ELSE ram_QA;
+	reg_QB <= byp_data WHEN byp_QB='1' ELSE ram_QB;
+
+PROCESS (clk)
+	BEGIN
 		IF rising_edge(clk) THEN
 		    IF clkena_lw='1' THEN
 				rf_source_addrd <= rf_source_addr;
 				WR_AReg <= rf_dest_addr(3);
 				RDindex_A <= conv_integer(rf_dest_addr(3 downto 0));
 				RDindex_B <= conv_integer(rf_source_addr(3 downto 0));
+
+				-- the register written now is the one read next: use the new data
+				byp_data <= regin;
+				byp_QA <= '0';
+				byp_QB <= '0';
 				IF Wwrena='1' THEN
-					regfile(RDindex_A) <= regin;
+					IF RDindex_A = conv_integer(rf_dest_addr(3 downto 0)) THEN
+						byp_QA <= '1';
+					END IF;
+					IF RDindex_A = conv_integer(rf_source_addr(3 downto 0)) THEN
+						byp_QB <= '1';
+					END IF;
 				END IF;
-				
+
 				IF exec(to_USP)='1' THEN
 					USP <= reg_QA;
 				END IF;	
