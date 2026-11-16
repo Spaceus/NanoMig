@@ -344,6 +344,9 @@ if {$dev eq "nano20k"} {
 	# block ram based bitplane and sprite buffers. All eight sprite buffers
 	# and the scroll history go to block ram to save logic cells
 	lappend defines "DENISE_EBR" "DENISE_SPRITE_BRAM 8" "DENISE_SCROLL_BRAM 1"
+
+	# cpu fixed to the 68020
+	lappend defines "CPU_FIXED_68020"
 	
 	# once tg68k is enabled add its timing constraints.
 	lappend sdc tang/primer25k/nanomig_tg68k.sdc
