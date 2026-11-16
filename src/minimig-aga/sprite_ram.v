@@ -9,31 +9,71 @@ module sprite_ram #(
 
   // Port read
   input  wire  [2:0] addrb,
+  input  wire        selb,   // block ram only: 0 reads the DATA (A) word, 1 the DATB (B) word
   output wire [31:0] doutb
 );
 
-// The low half (bit 15:0) holds the DATA (A) words, the high half the DATB
-// (B) words. The shifter loads shifta (A) from doutb[15:0] and shiftb (B)
-// from doutb[31:16], so A has to be in the low half
+// RAM16 version: the low half (bit 15:0) holds the DATA (A) words, the high
+// half the DATB (B) words, both are read together.
+//
+// Block ram version: 16 words of 16 bit, written and read with the same
+// address {buffer, bank, A/B}. Only one word is read at a time (selb), it
+// comes in doutb[15:0]. A 32 bit wide block ram would give both words at
+// once, but takes two block ram sites on the GW5A-25, a 16 bit one takes one.
 
 generate if (BRAM) begin : g_bram
 
-// 8x32 block ram, the two 16 bit halves are written separately (byte
-// enables). Same latency as below: address in, data one clock later
-(* ram_style = "block", syn_ramstyle = "block_ram" *)
-reg [31:0] mem [0:7];
-reg [31:0] q;
-assign doutb = q;
+wire [15:0] q;
+assign doutb = {16'd0, q};
 
-always @(posedge clk) begin
-  if (wea && !addra[0])
-    mem[addra[3:1]][15:0]  <= dina;
-  if (wea &&  addra[0])
-    mem[addra[3:1]][31:16] <= dina;
-end
+`ifdef GOWIN
+
+// One SDPB, 16 bit wide on both ports, instantiated directly so that it is
+// certain to be a single block. With a 16 bit port AD[13:4] is the word
+// address and ADA[1:0] are the byte enables. Bypass read mode: address in,
+// data one clock later, and a read of a word written in the same clock
+// returns the old word.
+wire [31:0] do32;
+assign q = do32[15:0];
+
+SDPB #(
+  .READ_MODE(1'b0),
+  .BIT_WIDTH_0(16),
+  .BIT_WIDTH_1(16),
+  .BLK_SEL_0(3'b000),
+  .BLK_SEL_1(3'b000),
+  .RESET_MODE("SYNC")
+) mem (
+  .CLKA(clk),
+  .CEA(wea),
+  .BLKSELA(3'b000),
+  .ADA({6'd0, addra, 2'b00, 2'b11}),
+  .DI({16'd0, dina}),
+  .CLKB(clk),
+  .CEB(1'b1),
+  .OCE(1'b1),
+  .RESET(1'b0),
+  .BLKSELB(3'b000),
+  .ADB({6'd0, addrb, selb, 4'd0}),
+  .DO(do32)
+);
+
+`else
+
+// 16x16 block ram. Same latency as below: address in, data one clock later
+(* ram_style = "block", syn_ramstyle = "block_ram" *)
+reg [15:0] mem [0:15];
+reg [15:0] q_r;
+assign q = q_r;
 
 always @(posedge clk)
-  q <= mem[addrb];
+  if (wea)
+    mem[addra] <= dina;
+
+always @(posedge clk)
+  q_r <= mem[{addrb, selb}];
+
+`endif
 
 end else begin : g_dist
 

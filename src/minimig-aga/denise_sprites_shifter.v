@@ -82,6 +82,7 @@ always @(posedge clk)
 wire [31:0] ram_doutb;
 wire  [3:0] ram_addra;
 wire  [2:0] ram_addrb;
+wire        ram_selb;
 wire [15:0] ram_din;
 reg         ram_wea;
 
@@ -98,10 +99,11 @@ sprite_ram #(.BRAM(BRAM)) ram (
   .addra(ram_addra),
   .dina(ram_din),
   .addrb(ram_addrb),
+  .selb(ram_selb),
   .doutb(ram_doutb)
 );
 
-// BRAM writes are 16-bit, reads 32-bit
+// writes are 16-bit, reads 32-bit (RAM16) or 16-bit (block ram, see below)
 assign ram_addra = {bankwr_buf, bankwr_idx, bankwr_reg};
 assign ram_addrb = {bankrd_buf, bankrd_idx};
 assign ram_din   = spr_dat;
@@ -167,19 +169,53 @@ end
 //--------------------------------------------------------------------------------------
 
 // sprite shift register
+wire ld = (clk7_en && load) || reload;  // (re)load current sprite data
+
 always @(posedge clk)
-  if ((clk7_en && load) || reload) begin
-    // (re)load current sprite data
+  if (ld) begin
     shifta[15:0] <= ram_doutb[15: 0];
-    shiftb[15:0] <= ram_doutb[31:16];
     shiftidx     <= 4'd0;
   end
   else if (shift) begin
     // shift out already loaded data
     shifta[15:0] <= {shifta[14:0],1'b0};
-    shiftb[15:0] <= {shiftb[14:0],1'b0};
     shiftidx     <= shiftidx + 4'd1;
   end
+
+generate if (BRAM) begin : g_seq
+
+  // The block ram gives one 16 bit word per clock. The A word is read all
+  // the time, the B word is addressed in the clock of the load and arrives
+  // one clock later. So shiftb does everything shifta does one 28MHz clock
+  // later, and its output takes one stage less of the output delay below,
+  // which puts both bits back in step.
+  reg ld_d;
+  reg shift_d;
+
+  assign ram_selb = ld;
+
+  always @(posedge clk) begin
+    ld_d    <= ld;
+    shift_d <= shift;
+  end
+
+  always @(posedge clk)
+    if (ld_d)
+      shiftb[15:0] <= ram_doutb[15:0];
+    else if (shift_d)
+      shiftb[15:0] <= {shiftb[14:0],1'b0};
+
+end else begin : g_par
+
+  assign ram_selb = 1'b0;
+
+  always @(posedge clk)
+    if (ld)
+      shiftb[15:0] <= ram_doutb[31:16];
+    else if (shift)
+      shiftb[15:0] <= {shiftb[14:0],1'b0};
+
+end endgenerate
 
 // assign serialized output data
 // AMR - register the output data to delay it by one clk7, compensating for removing load_del
@@ -187,7 +223,8 @@ reg [7:0] sprdata_r;
 always @(posedge clk)
   sprdata_r <= {shiftb[15],shifta[15],sprdata_r[7:2]}; // Ugly - are we masking a copper timing problem here?
 
-assign sprdata[1:0] = sprdata_r[1:0]; // {shiftb[63],shifta[63]};
+// block ram: shiftb is one clock late already, so take it one stage earlier
+assign sprdata[1:0] = {BRAM ? sprdata_r[3] : sprdata_r[1], sprdata_r[0]};
 
 //--------------------------------------------------------------------------------------
 

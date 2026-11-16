@@ -10,6 +10,9 @@
 `timescale 1ns/1ps
 module tb;
 reg clk = 0; always #17.5 clk = ~clk;
+`ifdef GOWIN
+GSR GSR (.GSRI(1'b1));   // global set/reset of the Gowin simulation library, found by name
+`endif
 reg [1:0] ph = 0;                      // 28MHz phase within a 7MHz cycle
 wire clk7_en = (ph == 2'd3);
 wire c1 = ph[0] ^ ph[1], c3 = ph[1];

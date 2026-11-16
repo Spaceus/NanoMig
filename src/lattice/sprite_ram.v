@@ -4,9 +4,11 @@
 
 
 `timescale 1 ns / 1 ps
-module sprite_ram (addra, addrb, dina, wea, clk, doutb)/* synthesis NGD_DRC_MASK=1 */;
+// BRAM and selb are only used by minimig-aga/sprite_ram.v, ignored here
+module sprite_ram #(parameter BRAM = 0) (addra, addrb, selb, dina, wea, clk, doutb)/* synthesis NGD_DRC_MASK=1 */;
     input wire [3:0] addra;
     input wire [2:0] addrb;
+    input wire selb;
     input wire [15:0] dina;
     input wire wea;
     input wire clk;
