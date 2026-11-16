@@ -341,8 +341,9 @@ if {$dev eq "nano20k"} {
 	lappend defines "ENABLE_TG68K" "ENABLE_AGA" "CPU_SLOW14" "ENABLE_CACHE"
 	lappend defines "NO_WS2812" "ENABLE_RAM32" "CHIPRAM_CACHE"
 
-	# options that may be worth testing
-	# lappend defines "DENISE_EBR"
+	# block ram based bitplane and sprite buffers. All eight sprite buffers
+	# and the scroll history go to block ram to save logic cells
+	lappend defines "DENISE_EBR" "DENISE_SPRITE_BRAM 8" "DENISE_SCROLL_BRAM 1"
 	
 	# once tg68k is enabled add its timing constraints.
 	lappend sdc tang/primer25k/nanomig_tg68k.sdc
