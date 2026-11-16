@@ -281,12 +281,21 @@ wire [8:1] scroller_out;
 wire [5:0] select1 = (shres ? pf1h_del[5:0] : hires ? pf1h_del[6:1] : pf1h_del[7:2]) & fmode_mask;
 wire [5:0] select2 = (shres ? pf2h_del[5:0] : hires ? pf2h_del[6:1] : pf2h_del[7:2]) & fmode_mask;
 
+// the same selects one clock ahead, the block ram version of the history
+// (DENISE_SCROLL_BRAM) has to apply its read address a clock early
+wire [7:0] pf1h_del_nxt = clk7_en ? pf1h + extra_delay_r : pf1h_del;
+wire [7:0] pf2h_del_nxt = clk7_en ? pf2h + extra_delay_r : pf2h_del;
+wire [5:0] select1_nxt = (shres ? pf1h_del_nxt[5:0] : hires ? pf1h_del_nxt[6:1] : pf1h_del_nxt[7:2]) & fmode_mask;
+wire [5:0] select2_nxt = (shres ? pf2h_del_nxt[5:0] : hires ? pf2h_del_nxt[6:1] : pf2h_del_nxt[7:2]) & fmode_mask;
+
 denise_scroll_history history (
   .clk(clk),
   .shift(shift),
   .pixel(scroller_in),
   .select1(select1),
   .select2(select2),
+  .select1_nxt(select1_nxt),
+  .select2_nxt(select2_nxt),
   .out(scroller_out)
 );
 
@@ -573,12 +582,21 @@ wire [8:1] scroller_out;
 wire [5:0] select1 = (shres ? pf1h_del[5:0] : hires ? pf1h_del[6:1] : pf1h_del[7:2]) & fmode_mask;
 wire [5:0] select2 = (shres ? pf2h_del[5:0] : hires ? pf2h_del[6:1] : pf2h_del[7:2]) & fmode_mask;
 
+// the same selects one clock ahead, the block ram version of the history
+// (DENISE_SCROLL_BRAM) has to apply its read address a clock early
+wire [7:0] pf1h_del_nxt = clk7_en ? pf1h + extra_delay_r : pf1h_del;
+wire [7:0] pf2h_del_nxt = clk7_en ? pf2h + extra_delay_r : pf2h_del;
+wire [5:0] select1_nxt = (shres ? pf1h_del_nxt[5:0] : hires ? pf1h_del_nxt[6:1] : pf1h_del_nxt[7:2]) & fmode_mask;
+wire [5:0] select2_nxt = (shres ? pf2h_del_nxt[5:0] : hires ? pf2h_del_nxt[6:1] : pf2h_del_nxt[7:2]) & fmode_mask;
+
 denise_scroll_history history (
   .clk(clk),
   .shift(shift),
   .pixel(scroller_in),
   .select1(select1),
   .select2(select2),
+  .select1_nxt(select1_nxt),
+  .select2_nxt(select2_nxt),
   .out(scroller_out)
 );
 
@@ -733,16 +751,119 @@ endmodule
 
 `endif
 
-module denise_scroll_history (
+`ifndef DENISE_SCROLL_BRAM
+`define DENISE_SCROLL_BRAM 0
+`endif
+
+module denise_scroll_history #(
+  // 1: the two 64x4 histories are block rams instead of distributed ram.
+  // Meant for devices where distributed ram ends up as flip flops and a wide
+  // mux (GW5A-25). Set by `define DENISE_SCROLL_BRAM
+  parameter BRAM = `DENISE_SCROLL_BRAM
+) (
   input        clk,
   input        shift,
   input  [7:0] pixel,
   input  [5:0] select1,
   input  [5:0] select2,
+  input  [5:0] select1_nxt,   // select1/2 as they will be after this clock,
+  input  [5:0] select2_nxt,   // only used by the block ram version
   output [7:0] out
 );
 
 reg [5:0] wrptr = 0;
+
+always @(posedge clk)
+  if(shift)
+    wrptr <= wrptr + 1'b1;
+
+wire [3:0] pixel_odd  = {pixel[6],pixel[4],pixel[2],pixel[0]};
+wire [3:0] pixel_even = {pixel[7],pixel[5],pixel[3],pixel[1]};
+
+generate if (BRAM) begin : g_bram
+
+// A block ram needs its read address one clock before the data, so the
+// address is built from the write pointer and the selects as they will be
+// after this clock. With select 0 that is the word being written right now;
+// the ram would return the old word, so the pixel is bypassed around it.
+wire [5:0] wrptr_nxt = wrptr + {5'd0, shift};
+wire [5:0] rd1 = wrptr_nxt - 6'd1 - select1_nxt;
+wire [5:0] rd2 = wrptr_nxt - 6'd1 - select2_nxt;
+
+reg [3:0] byp_odd = 0, byp_even = 0;
+reg       byp1 = 1'b0, byp2 = 1'b0;
+
+`ifdef GOWIN
+
+// SDPB primitives, 4 bit wide on both ports: the word address is AD[13:2].
+// Bypass read mode: address in, data one clock later.
+wire [31:0] do1, do2;
+wire  [3:0] q1 = do1[3:0];
+wire  [3:0] q2 = do2[3:0];
+
+SDPB #(
+  .READ_MODE(1'b0), .BIT_WIDTH_0(4), .BIT_WIDTH_1(4),
+  .BLK_SEL_0(3'b000), .BLK_SEL_1(3'b000), .RESET_MODE("SYNC")
+) odd_mem (
+  .CLKA(clk), .CEA(shift), .BLKSELA(3'b000),
+  .ADA({6'd0, wrptr, 2'd0}), .DI({28'd0, pixel_odd}),
+  .CLKB(clk), .CEB(1'b1), .OCE(1'b1), .RESET(1'b0), .BLKSELB(3'b000),
+  .ADB({6'd0, rd1, 2'd0}), .DO(do1)
+);
+
+SDPB #(
+  .READ_MODE(1'b0), .BIT_WIDTH_0(4), .BIT_WIDTH_1(4),
+  .BLK_SEL_0(3'b000), .BLK_SEL_1(3'b000), .RESET_MODE("SYNC")
+) even_mem (
+  .CLKA(clk), .CEA(shift), .BLKSELA(3'b000),
+  .ADA({6'd0, wrptr, 2'd0}), .DI({28'd0, pixel_even}),
+  .CLKB(clk), .CEB(1'b1), .OCE(1'b1), .RESET(1'b0), .BLKSELB(3'b000),
+  .ADB({6'd0, rd2, 2'd0}), .DO(do2)
+);
+
+`else
+
+(* ram_style = "block", syn_ramstyle = "block_ram" *)
+reg [3:0] odd_mem[0:63];
+(* ram_style = "block", syn_ramstyle = "block_ram" *)
+reg [3:0] even_mem[0:63];
+
+integer history_init;
+
+initial begin
+  for (history_init = 0; history_init < 64; history_init = history_init + 1) begin
+    odd_mem[history_init] = 0;
+    even_mem[history_init] = 0;
+  end
+end
+
+reg [3:0] q1 = 0, q2 = 0;
+
+always @(posedge clk) begin
+  if(shift)
+    odd_mem[wrptr] <= pixel_odd;
+  q1 <= odd_mem[rd1];
+end
+
+always @(posedge clk) begin
+  if(shift)
+    even_mem[wrptr] <= pixel_even;
+  q2 <= even_mem[rd2];
+end
+
+`endif
+
+always @(posedge clk) begin
+  byp_odd  <= pixel_odd;
+  byp_even <= pixel_even;
+  byp1     <= shift && (select1_nxt == 6'd0);
+  byp2     <= shift && (select2_nxt == 6'd0);
+end
+
+assign {out[6],out[4],out[2],out[0]} = byp1 ? byp_odd  : q1;
+assign {out[7],out[5],out[3],out[1]} = byp2 ? byp_even : q2;
+
+end else begin : g_dist
 
 reg [3:0] odd_mem[0:63] /* synthesis syn_ramstyle="distributed" */;
 reg [3:0] even_mem[0:63] /* synthesis syn_ramstyle="distributed" */;
@@ -761,13 +882,14 @@ wire [5:0] rd2 = wrptr - 6'd1 - select2;
 
 always @(posedge clk) begin
   if(shift) begin
-    odd_mem[wrptr]  <= {pixel[6],pixel[4],pixel[2],pixel[0]};
-    even_mem[wrptr] <= {pixel[7],pixel[5],pixel[3],pixel[1]};
-    wrptr           <= wrptr + 1'b1;
+    odd_mem[wrptr]  <= pixel_odd;
+    even_mem[wrptr] <= pixel_even;
   end
 end
 
 assign {out[6],out[4],out[2],out[0]} = odd_mem[rd1];
 assign {out[7],out[5],out[3],out[1]} = even_mem[rd2];
+
+end endgenerate
 
 endmodule
