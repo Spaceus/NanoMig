@@ -26,6 +26,13 @@ module nanomig (
    output [3:0]	 r,
    output [3:0]	 g,
    output [3:0]	 b,
+   // raw (not scandoubled) video for interlaced hdmi output
+   output        raw_hs,
+   output        raw_vs,
+   output [3:0]  raw_r,
+   output [3:0]  raw_g,
+   output [3:0]  raw_b,
+   output        raw_lace,
 
    input [7:0]	 memory_config,
    input [2:0]	 fastram_config,
@@ -1392,6 +1399,11 @@ wire [3:0] b_in = (hbl||vbl)?4'h0:blue[7:4];
 wire [1:0] res;   
 wire	   hs_in, vs_in;   
 
+assign raw_hs = hs_in;
+assign raw_vs = vs_in;
+assign raw_r  = r_in;
+assign raw_g  = g_in;
+assign raw_b  = b_in;
 // JOY0 is actually the joystick port and and joy1 is being driven by usb mouse data
 // JOY2 and JOY3 
 wire [15:0] JOY0 = { 8'h00, joystick0 };   
@@ -1586,7 +1598,7 @@ minimig minimig
 	._vsync       (vs_in            ), // vertical sync
 	._csync       (                 ), // composite sync
 	.field1       (                 ),
-	.lace         (                 ),
+	.lace         ( raw_lace        ),
 	.red          (red              ), // red
 	.green        (green            ), // green
 	.blue         (blue             ), // blue

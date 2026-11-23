@@ -48,6 +48,9 @@ module hdmi
     input logic [1:0]                 screen,      // 0 std, 1 overscan, 2 for some jailbars
     input logic                       short_frame, // 1 if short frame has been detected
     input logic                       interlace,   // 1 if interlace has been detected
+    input logic                       i_mode,      // 1: output 576i/480i from raw amiga video
+    input logic                       raw_hs,      // raw 15kHz amiga hsync, active low
+    input logic                       raw_vs,      // raw amiga vsync, active low
     // synchronous reset back to 0,0
     input logic 		      reset,
     input logic [23:0] 		      rgb, 
@@ -84,8 +87,17 @@ wire [54:0] htiming0 =
 	    (screen==2'd1)?htiming0o:
 	    htiming0n;   
    
-wire [102:0]  timing = pal_mode?{  htiming0, vtiming0, cea0 }:
+wire [102:0]  timing_p = pal_mode?{  htiming0, vtiming0, cea0 }:
                                 {  htiming0, vtiming1, cea1 };
+
+// interlaced output (576i50 / 480i60, pixel repetition 2): the raw amiga line of
+// 1816 clocks is sent as it is, hsync is derived from the raw amiga hsync and
+// vsync is the raw amiga vsync, which already has the half line offset
+wire [7:0] cea_i = pal_mode ? 8'd21 : 8'd6;
+wire [9:0] fh_i  = pal_mode ? 10'd313 : 10'd263;
+wire [9:0] sh_i  = pal_mode ? 10'd288 : 10'd240;
+wire [102:0] timing_i = { 11'd0, 11'd1816, 11'd1440, 11'd52, 11'd126, fh_i, sh_i, 10'd5, 10'd5, cea_i };
+wire [102:0] timing = i_mode ? timing_i : timing_p;
 
 // demux timing parameters   
 wire [10:0] start_x           = timing[102:92];
@@ -98,7 +110,7 @@ wire [10:0] hsync_pulse_size  = timing[58:48];
 // if we have a short frame, then the scandoubler outputs two lines less
 // if amiga outputs interlaced video, then the scandoubler outputs one line
 // less resulting in an odd overall frame height
-wire [9:0] frame_height       = timing[47:38] - (short_frame ? 10'd2 : 10'd0) - (interlace ? 10'd1 : 10'd0);
+wire [9:0] frame_height       = timing[47:38] - ((short_frame && !i_mode) ? 10'd2 : 10'd0) - ((interlace && !i_mode) ? 10'd1 : 10'd0);
 wire [9:0] screen_height      = timing[37:28];
 wire [9:0] vsync_pulse_start  = timing[27:18];
 wire [9:0] vsync_pulse_size   = timing[17: 8];
@@ -108,13 +120,19 @@ wire [7:0] cea                = timing[7:0];
 assign invert = 2'b11;
 
 reg [10:0] cx;
+reg hsD, vsD;
+always_ff @(posedge clk_pixel) begin hsD <= raw_hs; vsD <= raw_vs; end
+wire hs_fall = hsD && !raw_hs;
+wire vs_fall = vsD && !raw_vs;
 reg [9:0] cy;
 
 always_comb begin
     hsync <= invert[0] ^ (cx >= screen_width + hsync_pulse_start && cx < screen_width + hsync_pulse_start + hsync_pulse_size);
     // vsync pulses should begin and end at the start of hsync, so special
     // handling is required for the lines on which vsync starts and ends
-    if (cy == screen_height + vsync_pulse_start - 1)
+    if (i_mode)
+        vsync <= raw_vs;
+    else if (cy == screen_height + vsync_pulse_start - 1)
         vsync <= invert[1] ^ (cx >= screen_width + hsync_pulse_start);
     else if (cy == screen_height + vsync_pulse_start + vsync_pulse_size - 1)
         vsync <= invert[1] ^ (cx < screen_width + hsync_pulse_start);
@@ -131,6 +149,20 @@ begin
     begin
         cx <= start_x;
         cy <= 10'd0;    // start_y
+    end
+    else if (i_mode)
+    begin
+        // cx is re-synchronised to every raw hsync, cy to every raw vsync.
+        // The vsync edge is half a line apart in the two fields, so the
+        // picture position of the two fields follows automatically.
+        if (hs_fall)
+            cx <= screen_width + hsync_pulse_start;
+        else
+            cx <= cx == frame_width-1'b1 ? 11'd0 : cx + 1'b1;
+        if (vs_fall)
+            cy <= frame_height - 10'd23;
+        else if (cx == frame_width-1'b1)
+            cy <= cy == frame_height-1'b1 ? 10'd0 : cy + 1'b1;
     end
     else
     begin
@@ -231,7 +263,7 @@ generate
             .VENDOR_NAME(VENDOR_NAME),
             .PRODUCT_DESCRIPTION(PRODUCT_DESCRIPTION),
             .SOURCE_DEVICE_INFORMATION(SOURCE_DEVICE_INFORMATION)
-        ) packet_picker (.clk_pixel(clk_pixel), .clk_audio(clk_audio), .reset(reset), .cea(cea), .video_field_end(video_field_end), .packet_enable(packet_enable), .packet_pixel_counter(packet_pixel_counter), .audio_sample_word(audio_sample_word), .header(header), .sub(sub));
+        ) packet_picker (.clk_pixel(clk_pixel), .clk_audio(clk_audio), .reset(reset), .cea(cea), .pixel_rep(i_mode ? 4'd1 : 4'd0), .video_field_end(video_field_end), .packet_enable(packet_enable), .packet_pixel_counter(packet_pixel_counter), .audio_sample_word(audio_sample_word), .header(header), .sub(sub));
         logic [8:0] packet_data;
         packet_assembler packet_assembler (.clk_pixel(clk_pixel), .reset(reset), .data_island_period(data_island_period), .header(header), .sub(sub), .packet_data(packet_data), .counter(packet_pixel_counter));
 

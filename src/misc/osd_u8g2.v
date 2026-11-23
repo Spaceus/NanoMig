@@ -13,6 +13,7 @@ module osd_u8g2 (
   input        data_in_start,
   input [7:0]  data_in,
 	    
+  input        lace,   // raw 15kHz video: OSD pixel is 2 hires pixels, 1 field line
   input        hs,
   input        vs, 
   input [5:0]  r_in,
@@ -72,33 +73,36 @@ assign b_out = !enabled?b_in:active?osd_b:sactive?{1'b0, b_in[5:1]}:b_in;
 `define HEIGHT 8   // OSD height in 8 pixel tall characters
 
 // make sure OSD is centered
-wire [HCNT_BITS-1:0] hstart = {1'b0, scr_width[HCNT_BITS-1:1]}-8*`WIDTH*`SCALE/2;
-wire [VCNT_BITS-1:0] vstart = {1'b0, scr_height[VCNT_BITS-1:1]}-8*`HEIGHT*`SCALE/2;
+wire signed [11:0] VS = lace ? 12'sd1 : 12'sd2;
+wire [HCNT_BITS-1:0] hcnt_e = lace ? {1'b0, hcnt[HCNT_BITS-1:1]} : hcnt;
+wire [HCNT_BITS-1:0] sw_e = lace ? {1'b0, scr_width[HCNT_BITS-1:1]} : scr_width;
+wire [HCNT_BITS-1:0] hstart = {1'b0, sw_e[HCNT_BITS-1:1]}-8*`WIDTH*`SCALE/2;
+wire [VCNT_BITS-1:0] vstart = {1'b0, scr_height[VCNT_BITS-1:1]}-(lace ? 8*`HEIGHT/2 : 8*`HEIGHT*`SCALE/2);
 
 // Share one position subtraction per axis between the OSD windows and
 // the bitmap address calculation. Window limits are constant offsets.
-wire signed [HCNT_BITS:0] hpos = $signed({1'b0, hcnt}) - $signed({1'b0, hstart});
+wire signed [HCNT_BITS:0] hpos = $signed({1'b0, hcnt_e}) - $signed({1'b0, hstart});
 wire signed [VCNT_BITS:0] vpos = $signed({1'b0, vcnt}) - $signed({1'b0, vstart});
 
 always @(posedge clk) begin
    // entire OSD area incl border
    active <= hpos >= -(`SCALE*`BORDER+1) &&
              hpos < `SCALE*`BORDER+8*`WIDTH*`SCALE-1 &&
-             vpos >= -(`SCALE*`BORDER) &&
-             vpos < `SCALE*`BORDER+8*`HEIGHT*`SCALE;
+             vpos >= -(VS*`BORDER) &&
+             vpos < VS*`BORDER+8*`HEIGHT*VS;
    
    // text area of OSD
    tactive <= hpos >= -1 &&
               hpos < 8*`WIDTH*`SCALE-1 &&
               vpos >= 0 &&
-              vpos < 8*`HEIGHT*`SCALE;
+              vpos < 8*`HEIGHT*VS;
 
 `ifndef OSD_NO_SHADOW   
    // shadow area of OSD
    sactive <= hpos >= -`SCALE*`BORDER+`SCALE*`SHADOW-1 &&
               hpos < `SCALE*`BORDER+`SCALE*`SHADOW+8*`WIDTH*`SCALE-1 &&
-              vpos >= -`SCALE*`BORDER+`SCALE*`SHADOW &&
-              vpos < `SCALE*`BORDER+`SCALE*`SHADOW+8*`HEIGHT*`SCALE;
+              vpos >= -VS*`BORDER+VS*`SHADOW &&
+              vpos < VS*`BORDER+VS*`SHADOW+8*`HEIGHT*VS;
 `endif
 end
    
@@ -147,9 +151,9 @@ wire [7:0] hpixD = hpix+1;       // latch byte one pixel in advance
 wire [6:0] vpix  = vpos[6:0];  // vertical pixel position inside OSD
 
 reg [7:0] buffer_byte;
-assign osd_pix = buffer_byte[vpix[3:1]];
+assign osd_pix = buffer_byte[lace ? vpix[2:0] : vpix[3:1]];
 always @(posedge clk)
-    buffer_byte <= buffer[{ vpix[6:4], hpixD[7:1] }];
+    buffer_byte <= buffer[{ lace ? vpix[5:3] : vpix[6:4], hpixD[7:1] }];
    
 assign osd_pix_col = 6'd63;
 

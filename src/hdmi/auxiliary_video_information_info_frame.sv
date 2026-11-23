@@ -21,6 +21,7 @@ module auxiliary_video_information_info_frame
 )
 (
     input logic [7:0] cea,
+    input logic [3:0] pixel_rep,
     output logic [23:0] header,
     output logic [55:0] sub [3:0]
 );
@@ -43,7 +44,7 @@ assign packet_bytes[1] = {1'b0, VIDEO_FORMAT, ACTIVE_FORMAT_INFO_PRESENT, BAR_IN
 assign packet_bytes[2] = {COLORIMETRY, PICTURE_ASPECT_RATIO, ACTIVE_FORMAT_ASPECT_RATIO};
 assign packet_bytes[3] = {IT_CONTENT, EXTENDED_COLORIMETRY, RGB_QUANTIZATION_RANGE, NON_UNIFORM_PICTURE_SCALING};
 assign packet_bytes[4] = cea;
-assign packet_bytes[5] = {YCC_QUANTIZATION_RANGE, CONTENT_TYPE, PIXEL_REPETITION};
+assign packet_bytes[5] = {YCC_QUANTIZATION_RANGE, CONTENT_TYPE, pixel_rep};
 
 genvar i;
 generate

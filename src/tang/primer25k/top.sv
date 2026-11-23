@@ -391,6 +391,8 @@ sysctrl #(
 
 // digital 12 bit video
 wire hs_n, vs_n;
+wire raw_hs, raw_vs, raw_lace;
+wire [3:0] raw_r, raw_g, raw_b;
 wire [3:0] red;
 wire [3:0] green;
 wire [3:0] blue;
@@ -398,6 +400,16 @@ wire [3:0] blue;
 wire [5:0] video_red;
 wire [5:0] video_green;
 wire [5:0] video_blue;
+
+// Interlaced Amiga screens (LACE set) are sent to the TV as 576i/480i with
+// the raw 15kHz video, so the TV deinterlaces. The mode is only changed at a
+// vsync and the hdmi timing is restarted once when it changes.
+reg i_mode = 1'b0, i_modeD = 1'b0, rvsD = 1'b1;
+always @(posedge clk_28m) begin
+    rvsD <= raw_vs;
+    if (rvsD && !raw_vs) i_mode <= raw_lace;
+    i_modeD <= i_mode;
+end
 
 osd_u8g2 osd_u8g2 (
         .clk(clk_28m),
@@ -407,12 +419,13 @@ osd_u8g2 osd_u8g2 (
         .data_in_start(mcu_start),
         .data_in(mcu_data_out),
 
-        .hs(hs_n),
-        .vs(vs_n),
+        .lace(i_mode),
+        .hs(i_mode ? raw_hs : hs_n),
+        .vs(i_mode ? raw_vs : vs_n),
 
-        .r_in({red,   2'b00}),
-        .g_in({green, 2'b00}),
-        .b_in({blue,  2'b00}),
+        .r_in(i_mode ? {raw_r, 2'b00} : {red,   2'b00}),
+        .g_in(i_mode ? {raw_g, 2'b00} : {green, 2'b00}),
+        .b_in(i_mode ? {raw_b, 2'b00} : {blue,  2'b00}),
 
         .r_out(video_red),
         .g_out(video_green),
@@ -510,6 +523,12 @@ nanomig nanomig
  .r(red),
  .g(green),
  .b(blue),
+ .raw_hs(raw_hs),
+ .raw_vs(raw_vs),
+ .raw_r(raw_r),
+ .raw_g(raw_g),
+ .raw_b(raw_b),
+ .raw_lace(raw_lace),
 
  .audio_left(audio_left),
  .audio_right(audio_right),
@@ -812,6 +831,9 @@ always @(posedge clk_pixel) begin
     end
 end
 
+wire hdmi_reset = vreset && !i_mode || (i_mode != i_modeD);
+wire [17:0] hdmi_rgb = { video_red, video_green, video_blue };
+
 wire [2:0] tmds;
 wire tmds_clock;
 
@@ -831,9 +853,12 @@ hdmi #(
   .short_frame ( short_frame ),
   .screen ( osd_video_screen ),
   .interlace(interlace),
-  .reset(vreset),    // signal to synchronize HDMI
+  .i_mode(i_mode),
+  .raw_hs(raw_hs),
+  .raw_vs(raw_vs),
+  .reset(hdmi_reset),    // signal to synchronize HDMI
 
-  .rgb( { video_red, 2'b00, video_green, 2'b00, video_blue, 2'b00 } )
+  .rgb( { hdmi_rgb[17:12], 2'b00, hdmi_rgb[11:6], 2'b00, hdmi_rgb[5:0], 2'b00 } )
 );
 
 // differential output
