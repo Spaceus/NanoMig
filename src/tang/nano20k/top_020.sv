@@ -1179,6 +1179,9 @@ ELVDS_OBUF tmds_bufds [3:0] (
         .OB({tmds_clk_n, tmds_d_n})
 );
 
+// Buzzer disabled: pin 53 is used for the onboard HDMI EDID_CLK line
+assign buzzer = 1'b0;
+
 // ========================= Drive Sounds =========================
 `ifdef HQ_DRIVE_SOUNDS
 drive_sounds_hq drive_sounds_inst (
@@ -1188,7 +1191,7 @@ drive_sounds_hq drive_sounds_inst (
     //.fdd_led (leds[1]),
     .hdd_led (leds[2]),
 	.fdd_step_n (fdd_step_n),
-    .buzzer  (buzzer)
+    .buzzer  ()
 );
 `else
 drive_sounds_min drive_sounds_inst (
@@ -1197,7 +1200,7 @@ drive_sounds_min drive_sounds_inst (
 	.enable  (osd_drive_sounds),
     .hdd_led (leds[2]),
 	.fdd_step_n (fdd_step_n),
-    .buzzer  (buzzer)
+    .buzzer  ()
 );
 `endif // HQ_DRIVE_SOUNDS
    
